@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Police complaint draft (UI demo)
 
-## Getting Started
+Citizen-facing **web demo** with **OpenAI Realtime voice** (primary) and form backup. Intake → dual document with:
 
-First, run the development server:
+1. **Part A** — formal complaint + suggested **BNS** offence (fixed catalogue)
+2. **Part B** — **exact account** (verbatim, no paraphrase)
+
+Print or share a link. **Not a registered FIR. Not legal advice.**
+
+## Stack
+
+- **Next.js** (App Router) — UI + serverless API routes
+- **Supabase** — optional Postgres storage (see `supabase/schema.sql`)
+- **Local fallback** — `.data/complaints.json` when Supabase env is missing (localhost demo)
+
+## Modes
+
+| Mode | Role |
+|------|------|
+| **Voice (primary)** | Browser mic → **OpenAI Realtime** (WebRTC) intake agent → draft |
+| **Form (backup)** | Type / paste / browser dictation → same draft pipeline |
+
+## Quick start (localhost)
 
 ```bash
+cd police-complaint-voice
+npm install
+cp .env.example .env.local
+# set OPENAI_API_KEY=sk-...  (standard OpenAI key with Realtime access)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Voice path
+1. Stay on **Voice (OpenAI) · primary**
+2. **Start voice intake** → allow microphone
+3. Answer the agent (Hindi / English / Hinglish)
+4. **Finish & generate draft** (or let the agent finalize)
+5. Print / share `/d/<token>`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Form path
+1. Switch to **Form · backup**
+2. Load sample or type → **Generate complaint draft**
 
-## Learn More
+## Supabase setup
 
-To learn more about Next.js, take a look at the following resources:
+1. Create a project at [supabase.com](https://supabase.com)
+2. SQL Editor → run `supabase/schema.sql`
+3. Copy URL + anon key (and optionally service role) into `.env.local`:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...   # optional but better for server writes
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+4. Restart `npm run dev`. `GET /api/health` should show `"storage":"supabase"`.
 
-## Deploy on Vercel
+## API
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/health` | Storage mode + catalogue size |
+| `POST` | `/api/complaints` | Create draft from JSON body |
+| `GET` | `/api/complaints/:token` | Load draft JSON |
+| `PATCH` | `/api/complaints/:token` | Edit structured fields only (not verbatim) |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Exact account preservation
+
+- `verbatimAccount` is stored as submitted (line endings normalized only)
+- Offence mapping never rewrites the narrative
+- PATCH cannot change Part B text
+
+## Later (not in this demo)
+
+- Twilio phone number + OpenAI Realtime agent
+- SMS/WhatsApp delivery of the same `/d/:token` link
+
+## Disclaimer
+
+Suggested BNS sections are from a **small demo catalogue** and may be wrong or incomplete. The duty officer at the station decides the offence and whether to register an FIR. Call **112** in an emergency.

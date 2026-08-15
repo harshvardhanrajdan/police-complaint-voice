@@ -1,26 +1,329 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: only light;
+  --navy: #071a3a;
+  --navy-rich: #0c2a5c;
+  --navy-mid: #153a7a;
+  --gold: #c9a227;
+  --gold-bright: #e0bc4a;
+  --gold-soft: #fbf6e6;
+  --saffron: #ff9933;
+  --india-green: #138808;
+  --page: #f0f3f8;
+  --ink: #0b1220;
+  --muted: #5b6b7c;
+  --line: #d0d8e6;
+  --card: #ffffff;
+  --danger: #b42318;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--page);
+  --color-foreground: var(--ink);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: only light;
+  background: var(--page);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--page) !important;
+  color: var(--ink) !important;
+  font-family: var(--font-geist-sans), "Segoe UI", system-ui, sans-serif;
+}
+
+/* Hard light surfaces so browser dark extensions don't invert the portal */
+.force-light,
+.force-light * {
+  color-scheme: only light;
+}
+
+.tricolor-bar {
+  height: 5px;
+  background: linear-gradient(
+    90deg,
+    #ff9933 0 33.33%,
+    #ffffff 33.33% 66.66%,
+    #138808 66.66% 100%
+  );
+}
+
+.portal-shell {
+  background:
+    radial-gradient(1200px 400px at 10% -10%, rgba(201, 162, 39, 0.12), transparent 55%),
+    radial-gradient(900px 380px at 100% 0%, rgba(12, 42, 92, 0.08), transparent 50%),
+    linear-gradient(180deg, #e9eef7 0%, #f0f3f8 45%, #ebf0f7 100%);
+  min-height: 100%;
+}
+
+.portal-card {
+  background: #ffffff !important;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 10px 30px rgba(7, 26, 58, 0.08),
+    0 2px 6px rgba(7, 26, 58, 0.04);
+}
+
+.premium-header {
+  background:
+    linear-gradient(135deg, #050f24 0%, #0c2a5c 48%, #0a1f44 100%);
+  color: #fff !important;
+  border-bottom: 1px solid rgba(201, 162, 39, 0.45);
+  box-shadow: 0 8px 28px rgba(5, 15, 36, 0.28);
+}
+
+.gold-text {
+  color: var(--gold-bright) !important;
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, #1a4a8c 0%, #0c2a5c 100%);
+  color: #fff !important;
+  border: 1px solid #061530;
+  box-shadow: 0 2px 0 #04101f, 0 8px 16px rgba(12, 42, 92, 0.25);
+  font-weight: 700;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-gold {
+  background: linear-gradient(180deg, #f0d78c 0%, #c9a227 55%, #a88412 100%);
+  color: #1a1200 !important;
+  border: 1px solid #8a6a10;
+  box-shadow: 0 2px 0 #6f550c, 0 8px 18px rgba(168, 132, 18, 0.35);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.btn-gold:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+/* Big CTA — Start speaking */
+.btn-start-speak {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-width: min(100%, 22rem);
+  padding: 1.15rem 2.25rem;
+  font-size: 1.2rem;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  border-radius: 9999px;
+  color: #1a1200 !important;
+  background: linear-gradient(180deg, #ffe28a 0%, #e0bc4a 40%, #c9a227 100%);
+  border: 2px solid #f5e6a8;
+  box-shadow:
+    0 0 0 4px rgba(201, 162, 39, 0.28),
+    0 0 32px rgba(224, 188, 74, 0.55),
+    0 10px 28px rgba(7, 26, 58, 0.2),
+    0 3px 0 #8a6a10;
+  animation: cta-pulse 2s ease-in-out infinite;
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-start-speak:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 0 0 5px rgba(201, 162, 39, 0.35),
+    0 0 40px rgba(224, 188, 74, 0.7),
+    0 14px 32px rgba(7, 26, 58, 0.25),
+    0 3px 0 #8a6a10;
+}
+
+.btn-start-speak:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
+
+.btn-start-speak:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  animation: none;
+}
+
+.btn-start-speak .mic-dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 9999px;
+  background: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25);
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+@keyframes cta-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 4px rgba(201, 162, 39, 0.28),
+      0 0 28px rgba(224, 188, 74, 0.45),
+      0 10px 28px rgba(7, 26, 58, 0.2),
+      0 3px 0 #8a6a10;
+  }
+  50% {
+    box-shadow:
+      0 0 0 8px rgba(201, 162, 39, 0.18),
+      0 0 42px rgba(224, 188, 74, 0.75),
+      0 12px 32px rgba(7, 26, 58, 0.22),
+      0 3px 0 #8a6a10;
+  }
+}
+
+.btn-ghost {
+  background: #fff !important;
+  border: 1px solid #9aa8bc;
+  color: #0b1220 !important;
+  font-weight: 600;
+}
+
+.btn-ghost:hover {
+  background: #f7f9fc !important;
+  border-color: #0c2a5c;
+}
+
+.field-input {
+  width: 100%;
+  border: 1px solid #9aa8bc;
+  border-radius: 8px;
+  background: #fff !important;
+  color: #0b1220 !important;
+  padding: 0.6rem 0.8rem;
+  outline: none;
+}
+
+.field-input:focus {
+  border-color: #153a7a;
+  box-shadow: 0 0 0 3px rgba(21, 58, 122, 0.16);
+}
+
+.section-title {
+  border-left: 4px solid var(--gold);
+  padding-left: 0.7rem;
+  font-weight: 800;
+  color: var(--navy) !important;
+}
+
+.hero-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 36px rgba(7, 26, 58, 0.12);
+}
+
+.hero-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    rgba(7, 26, 58, 0.92) 0%,
+    rgba(7, 26, 58, 0.78) 42%,
+    rgba(7, 26, 58, 0.35) 70%,
+    rgba(7, 26, 58, 0.15) 100%
+  );
+  pointer-events: none;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+}
+
+.live-pulse {
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.9);
+  }
+}
+
+.badge-glow {
+  box-shadow:
+    0 0 0 3px rgba(201, 162, 39, 0.25),
+    0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
+/* Independence Day confetti + progress */
+.inde-confetti {
+  position: absolute;
+  top: -12px;
+  border-radius: 2px;
+  opacity: 0.95;
+  animation-name: confetti-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  transform: rotate(var(--spin, 0deg));
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(110vh) rotate(720deg);
+    opacity: 0.85;
+  }
+}
+
+.inde-progress {
+  width: 40%;
+  animation: inde-bar 1.4s ease-in-out infinite;
+}
+
+@keyframes inde-bar {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  .break-before-page {
+    break-before: page;
+  }
+
+  .portal-card {
+    box-shadow: none !important;
+    border: none !important;
+  }
 }

@@ -1,0 +1,137 @@
+[
+  {
+    "id": "theft",
+    "plain_name_en": "Theft",
+    "plain_name_hi": "चोरी",
+    "bns_sections": ["303"],
+    "keywords": ["stole", "stolen", "theft", "chori", "चोरी", "took my", "wallet", "phone snatched", "bag", "pickpocket"],
+    "elements": ["movable property taken without consent"],
+    "severity_note": "Cognizable; station will assess value and manner."
+  },
+  {
+    "id": "snatching",
+    "plain_name_en": "Snatching / robbery-related facts",
+    "plain_name_hi": "छीनना / लूट संबंधी तथ्य",
+    "bns_sections": ["309", "303"],
+    "keywords": ["snatched", "chain snatching", "mobile snatching", "bike snatched", "forcibly took", "झपट", "छीन"],
+    "elements": ["property taken with sudden force from person"],
+    "severity_note": "Officer decides between theft and robbery-related sections."
+  },
+  {
+    "id": "house_trespass_theft",
+    "plain_name_en": "House-breaking / house theft related",
+    "plain_name_hi": "घर में सेंधमारी / घरेलू चोरी",
+    "bns_sections": ["331", "303"],
+    "keywords": ["broke into", "house break", "burglar", "locked house", "entered my house", " सेंध", "घर तोड़", "lock broken"],
+    "elements": ["entry into dwelling with intent related to offence"],
+    "severity_note": "Map carefully to house-breaking vs simple theft."
+  },
+  {
+    "id": "cheating_fraud",
+    "plain_name_en": "Cheating / fraud",
+    "plain_name_hi": "धोखाधड़ी",
+    "bns_sections": ["318"],
+    "keywords": ["fraud", "cheated", "scam", "fake", "deceived", "धोखा", "फर्जी", "promised", "advance money"],
+    "elements": ["dishonest inducement causing delivery of property or harm"],
+    "severity_note": "Common for marketplace and job scams."
+  },
+  {
+    "id": "cyber_upi_fraud",
+    "plain_name_en": "Online / UPI fraud (cheating by personation or digital means)",
+    "plain_name_hi": "ऑनलाइन / UPI धोखाधड़ी",
+    "bns_sections": ["318", "336"],
+    "keywords": ["upi", "otp", "gpay", "phonepe", "paytm", "online fraud", "link", "qr", "bank transfer", "cyber", "whatsapp fraud", "otp share"],
+    "elements": ["digital payment or OTP/social-engineering induced transfer"],
+    "severity_note": "Also consider IT Act complaints at cyber cell as advised by station."
+  },
+  {
+    "id": "criminal_intimidation",
+    "plain_name_en": "Criminal intimidation / threat",
+    "plain_name_hi": "आपराधिक धमकी",
+    "bns_sections": ["351"],
+    "keywords": ["threatened", "threat", "kill you", "harm you", "blackmail", "धमकी", "मार डालूंगा", "extort"],
+    "elements": ["threat of injury to person, reputation or property"],
+    "severity_note": "Preserve exact words of the threat in verbatim section."
+  },
+  {
+    "id": "hurt_assault",
+    "plain_name_en": "Hurt / assault",
+    "plain_name_hi": "मारपीट / चोट",
+    "bns_sections": ["115", "117"],
+    "keywords": ["hit me", "beat", "assault", "punched", "slapped", "injury", "मारपीट", "पीटा", "चोट", "blood"],
+    "elements": ["bodily pain, disease or infirmity caused"],
+    "severity_note": "Medical report (MLC) often requested at station."
+  },
+  {
+    "id": "mischief",
+    "plain_name_en": "Mischief (damage to property)",
+    "plain_name_hi": "संपत्ति को नुकसान",
+    "bns_sections": ["324"],
+    "keywords": ["damaged", "broke my", "vandal", "tyre cut", "window broken", "नुकसान", "तोड़ दिया"],
+    "elements": ["wrongful damage to property"],
+    "severity_note": "Estimate of damage helps the station."
+  },
+  {
+    "id": "criminal_breach_trust",
+    "plain_name_en": "Criminal breach of trust",
+    "plain_name_hi": "न्यास भंग",
+    "bns_sections": ["316"],
+    "keywords": ["entrusted", "partner took", "employee stole", "misappropriat", "breach of trust", "amanat"],
+    "elements": ["property entrusted and dishonestly misappropriated"],
+    "severity_note": "Often needs documents of entrustment."
+  },
+  {
+    "id": "forgery",
+    "plain_name_en": "Forgery / false document related",
+    "plain_name_hi": "जालसाजी",
+    "bns_sections": ["336", "337"],
+    "keywords": ["forged", "fake signature", "fake document", "forged cheque", "जाली", "हस्ताक्षर"],
+    "elements": ["false document made with intent to cause damage or support claim"],
+    "severity_note": "Bring original documents to the station."
+  },
+  {
+    "id": "sexual_harassment",
+    "plain_name_en": "Sexual harassment related",
+    "plain_name_hi": "यौन उत्पीड़न संबंधी",
+    "bns_sections": ["75"],
+    "keywords": ["sexual harassment", "touched inappropriately", "outraging", "eve teasing", "छेड़छाड़", "अश्लील"],
+    "elements": ["unwelcome sexual conduct or related acts as described by complainant"],
+    "severity_note": "Sensitive intake; preserve complainant’s exact words; station may use specialised desk."
+  },
+  {
+    "id": "missing_person",
+    "plain_name_en": "Missing person / related complaint",
+    "plain_name_hi": "लापता व्यक्ति",
+    "bns_sections": ["137"],
+    "keywords": ["missing", "disappeared", "not returned home", "kidnapped", "लापता", "अगवा"],
+    "elements": ["person missing under concerning circumstances"],
+    "severity_note": "Urgent: advise immediate station visit / 112 if ongoing danger."
+  },
+  {
+    "id": "domestic_violence_related",
+    "plain_name_en": "Domestic violence / cruelty related facts",
+    "plain_name_hi": "घरेलू हिंसा / क्रूरता संबंधी",
+    "bns_sections": ["85", "86"],
+    "keywords": ["husband beat", "in-laws", "dowry", "domestic violence", "cruelty", "दहेज", "ससुराल", "पति"],
+    "elements": ["cruelty or domestic violence facts as narrated"],
+    "severity_note": "May involve DV Act remedies; station decides sections."
+  },
+  {
+    "id": "public_nuisance",
+    "plain_name_en": "Public nuisance related",
+    "plain_name_hi": "लोक न्यूसेंस",
+    "bns_sections": ["270"],
+    "keywords": ["noise", "blocked road", "public nuisance", "illegal construction dump", "परेशानी"],
+    "elements": ["act causing common injury or annoyance to public"],
+    "severity_note": "Often first directed to local police / municipal routes."
+  },
+  {
+    "id": "unknown_other",
+    "plain_name_en": "Facts require station classification",
+    "plain_name_hi": "थाने पर अपराध वर्गीकरण आवश्यक",
+    "bns_sections": [],
+    "keywords": [],
+    "elements": ["insufficient match to catalogue"],
+    "severity_note": "Draft preserves account; duty officer will name the offence."
+  }
+]
