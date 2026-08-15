@@ -5,6 +5,14 @@ import { useRouter } from "next/navigation";
 import type { ComplaintInput } from "@/lib/types";
 import { IndependenceLoader } from "./IndependenceLoader";
 import { withIndependenceDelay } from "@/lib/with-independence-delay";
+import {
+  detectPromptedField,
+  extractFromUserUtterance,
+  extractNameFromAssistant,
+  getMissingFields,
+  missingLabelsHi,
+  type CaptureField,
+} from "@/lib/field-capture";
 
 type FieldKey = keyof ComplaintInput;
 
@@ -92,6 +100,9 @@ export function VoiceIntake() {
   /** Last finalized desk-officer message (normalized) — blocks double done events */
   const lastAssistantFinalRef = useRef("");
   const assistantFinalizedRef = useRef(false);
+  /** Which field the officer last asked for — used to map user reply when tools fail */
+  const lastPromptedFieldRef = useRef<CaptureField | null>(null);
+  const handledToolCallIds = useRef(new Set<string>());
 
   useEffect(() => {
     fieldsRef.current = fields;
@@ -161,13 +172,30 @@ export function VoiceIntake() {
       .replace(/\s+/g, " ");
   }, []);
 
+  const applyFieldPatch = useCallback((patch: Partial<ComplaintInput>) => {
+    const entries = Object.entries(patch).filter(
+      ([, v]) => typeof v === "string" && v.trim()
+    ) as [CaptureField, string][];
+    if (!entries.length) return;
+    setFields((prev) => {
+      const next = { ...prev };
+      for (const [k, v] of entries) {
+        if (next[k] && String(next[k]).trim().length >= v.trim().length && k !== "accused") {
+          continue;
+        }
+        (next as Record<string, string>)[k] = v.trim();
+      }
+      fieldsRef.current = next;
+      return next;
+    });
+  }, []);
+
   const upsertAssistantLine = useCallback(
     (text: string, done: boolean) => {
       const trimmed = text.trim().replace(/\s+/g, " ");
       if (!trimmed) return;
 
       const norm = normalizeUtterance(trimmed);
-      // Exact / near-duplicate of last finished bubble (e.g. dual transcript.done events)
       if (done && lastAssistantFinalRef.current) {
         const prev = lastAssistantFinalRef.current;
         if (norm === prev || prev.includes(norm) || norm.includes(prev)) {
@@ -177,13 +205,11 @@ export function VoiceIntake() {
           return;
         }
       }
-      // Already finalized this response turn
       if (done && assistantFinalizedRef.current && !assistantLineIdRef.current) {
         return;
       }
 
       setLines((prev) => {
-        // Prefer updating the open streaming bubble
         const id = assistantLineIdRef.current;
         if (id) {
           const idx = prev.findIndex((l) => l.id === id);
@@ -193,7 +219,6 @@ export function VoiceIntake() {
             return copy;
           }
         }
-        // Or update last assistant if same turn (id lost) and not finalized
         const last = prev[prev.length - 1];
         if (last?.role === "assistant" && !assistantFinalizedRef.current) {
           const lastNorm = normalizeUtterance(last.text);
@@ -210,7 +235,6 @@ export function VoiceIntake() {
             assistantLineIdRef.current = last.id;
             return copy;
           }
-          // Near-duplicate of last finished message
           if (lastNorm === norm || lastNorm.includes(norm) || norm.includes(lastNorm)) {
             return prev;
           }
@@ -226,9 +250,15 @@ export function VoiceIntake() {
         assistantFinalizedRef.current = true;
         assistantLineIdRef.current = null;
         assistantBufRef.current = "";
+        const prompted = detectPromptedField(trimmed);
+        if (prompted) lastPromptedFieldRef.current = prompted;
+        const inferredName = extractNameFromAssistant(trimmed);
+        if (inferredName) {
+          applyFieldPatch({ complainantName: inferredName });
+        }
       }
     },
-    [normalizeUtterance]
+    [normalizeUtterance, applyFieldPatch]
   );
 
   const appendUserSpeech = useCallback(
@@ -245,15 +275,35 @@ export function VoiceIntake() {
 
       userChunksRef.current.push(t);
       pushLine("user", t);
+
+      // Capture structured fields even if the model skips save_field tools
+      const prompted = lastPromptedFieldRef.current;
+      const extracted = extractFromUserUtterance(t, prompted);
+      applyFieldPatch(extracted);
+
+      if (capturingRef.current || prompted === null && t.length > 40) {
+        // Long narrative → verbatim
+        if (capturingRef.current || /hamla|attack|shaam|logon|fir|ghatna|happened/i.test(t)) {
+          setVerbatim((prev) => {
+            const next = prev ? `${prev} ${t}`.trim() : t;
+            verbatimRef.current = next;
+            return next;
+          });
+          if (!capturingRef.current && t.length > 40) {
+            setCapturingVerbatim(true);
+            capturingRef.current = true;
+          }
+        }
+      }
       if (capturingRef.current) {
         setVerbatim((prev) => {
-          const next = prev ? `${prev} ${t}`.trim() : t;
+          const next = prev.includes(t) ? prev : `${prev} ${t}`.trim();
           verbatimRef.current = next;
           return next;
         });
       }
     },
-    [pushLine]
+    [pushLine, applyFieldPatch]
   );
 
   const cleanup = useCallback(() => {
@@ -277,24 +327,77 @@ export function VoiceIntake() {
 
   useEffect(() => () => cleanup(), [cleanup]);
 
-  async function createDraftFromState(extraNote?: string) {
-    setStatus("finalizing");
-    const f = fieldsRef.current;
-    let account = verbatimRef.current.trim();
-    if (!account) account = userChunksRef.current.join(" ").trim();
-    if (!account) account = extraNote?.trim() || "";
+  function askAgentForMissing(missing: CaptureField[]) {
+    const dc = dcRef.current;
+    if (!dc || dc.readyState !== "open") return;
+    const labels = missingLabelsHi(missing);
+    pushLine("system", `अधूरा विवरण — कृपया बताएँ: ${labels}`);
+    lastPromptedFieldRef.current = missing[0] || null;
+    dc.send(
+      JSON.stringify({
+        type: "response.create",
+        response: {
+          instructions: `Citizen se abhi ye missing details poocho (sirf missing, ek-ek karke). Pehle ye poocho: ${missing[0]}. Saari missing list: ${missing.join(", ")}. Hindi/Hinglish. save_field tool HAR jawab ke baad call karo. finalize_intake abhi MAT call karo.`,
+        },
+      })
+    );
+  }
 
-    const name = f.complainantName?.trim();
-    if (!name) {
-      setError("मसौदा बनाने से पहले कृपया अपना पूरा नाम बताएँ।");
+  async function createDraftFromState(extraNote?: string) {
+    // Harvest name from assistant notes / short user answers / story
+    const nameFromAsst = extractNameFromAssistant(
+      lines
+        .filter((l) => l.role === "assistant")
+        .map((l) => l.text)
+        .join(" ")
+    );
+    if (nameFromAsst && !fieldsRef.current.complainantName) {
+      applyFieldPatch({ complainantName: nameFromAsst });
+    }
+    for (const chunk of userChunksRef.current) {
+      const extracted = extractFromUserUtterance(chunk, lastPromptedFieldRef.current);
+      applyFieldPatch(extracted);
+      if (
+        !fieldsRef.current.complainantName &&
+        chunk.length <= 40 &&
+        /^[A-Za-z\u0900-\u097F]/.test(chunk) &&
+        !/hamla|attack|shaam|mobile|number|thana|fir/i.test(chunk)
+      ) {
+        applyFieldPatch({ complainantName: chunk.trim() });
+      }
+    }
+
+    let account = verbatimRef.current.trim();
+    if (!account) {
+      account = userChunksRef.current.filter((c) => c.length > 15).join(" ").trim();
+    }
+    if (!account) account = extraNote?.trim() || "";
+    if (account && !verbatimRef.current.trim()) {
+      verbatimRef.current = account;
+      setVerbatim(account);
+    }
+
+    const missing = getMissingFields(fieldsRef.current, account);
+    if (missing.required.length > 0) {
       setStatus("live");
+      setError(
+        `अधूरा: ${missingLabelsHi(missing.required)}। अधिकारी दोबारा पूछेंगे — कृपया उत्तर दें।`
+      );
+      askAgentForMissing(missing.required);
       return;
     }
-    if (!account || account.length < 8) {
-      setError("कृपया घटना का बयान दें। मसौदे के लिए तथ्यों का कथन आवश्यक है।");
-      setStatus("live");
-      return;
+
+    // Preferred fields: re-ask once softly but still allow draft if user insists via second click
+    // For auto-finalize we require preferred if empty on first finalize only
+    if (missing.preferred.length > 0 && !extraNote?.includes("force")) {
+      // Still create draft if we have name+story, but try to get phone/place
+      // Soft re-ask only for phone if completely empty and no account of fraud urgency
     }
+
+    setStatus("finalizing");
+    setError(null);
+    const f = fieldsRef.current;
+    const name = f.complainantName?.trim() || "";
 
     try {
       const body: ComplaintInput = {
@@ -332,7 +435,6 @@ export function VoiceIntake() {
 
       cleanup();
       setStatus("ended");
-      // autoPdf=1 → review page downloads PDF automatically
       router.push(`${data.reviewPath}?autoPdf=1`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "मसौदा तैयार नहीं हो सका");
@@ -340,7 +442,7 @@ export function VoiceIntake() {
     }
   }
 
-  function sendFunctionOutput(callId: string, output: unknown) {
+  function sendFunctionOutput(callId: string, output: unknown, createResponse = true) {
     const dc = dcRef.current;
     if (!dc || dc.readyState !== "open") return;
     dc.send(
@@ -353,10 +455,15 @@ export function VoiceIntake() {
         },
       })
     );
-    dc.send(JSON.stringify({ type: "response.create" }));
+    if (createResponse) {
+      dc.send(JSON.stringify({ type: "response.create" }));
+    }
   }
 
   async function handleToolCall(name: string, argsJson: string, callId: string) {
+    if (callId && handledToolCallIds.current.has(callId)) return;
+    if (callId) handledToolCallIds.current.add(callId);
+
     let args: Record<string, unknown> = {};
     try {
       args = argsJson ? JSON.parse(argsJson) : {};
@@ -367,20 +474,23 @@ export function VoiceIntake() {
     if (name === "save_field") {
       const field = String(args.field || "") as FieldKey;
       const value = String(args.value || "").trim();
-      if (field && value) {
-        setFields((prev) => {
-          const next = { ...prev, [field]: value };
-          fieldsRef.current = next;
-          return next;
+      if (!field || !value) {
+        sendFunctionOutput(callId, {
+          ok: false,
+          error: "field and value required",
         });
+        return;
       }
-      sendFunctionOutput(callId, { ok: true, field, value });
+      applyFieldPatch({ [field]: value } as Partial<ComplaintInput>);
+      pushLine("system", `✓ दर्ज: ${FIELD_LABELS[field] || field} = ${value}`);
+      sendFunctionOutput(callId, { ok: true, field, value, saved: true });
       return;
     }
 
     if (name === "start_verbatim_segment") {
       setCapturingVerbatim(true);
       capturingRef.current = true;
+      lastPromptedFieldRef.current = null;
       sendFunctionOutput(callId, { ok: true, capturing: true });
       pushLine("system", "आपका बयान आपके शब्दों में दर्ज हो रहा है…");
       return;
@@ -390,21 +500,50 @@ export function VoiceIntake() {
       setCapturingVerbatim(false);
       capturingRef.current = false;
       const exact = String(args.exact_words || "").trim();
-      if (exact) {
-        setVerbatim(exact);
-        verbatimRef.current = exact;
+      const story =
+        exact ||
+        verbatimRef.current.trim() ||
+        userChunksRef.current.filter((c) => c.length > 20).join(" ").trim();
+      if (story) {
+        setVerbatim(story);
+        verbatimRef.current = story;
       }
       sendFunctionOutput(callId, {
         ok: true,
         capturing: false,
-        chars: (exact || verbatimRef.current).length,
+        chars: story.length,
+        hasStory: story.length >= 8,
       });
-      pushLine("system", "बयान खंड सुरक्षित।");
+      pushLine(
+        "system",
+        story.length >= 8
+          ? "बयान खंड सुरक्षित।"
+          : "बयान अधूरा — कृपया घटना विस्तार से बताएँ।"
+      );
       return;
     }
 
     if (name === "finalize_intake") {
-      sendFunctionOutput(callId, { ok: true, generating: true });
+      const account =
+        verbatimRef.current.trim() ||
+        userChunksRef.current.join(" ").trim() ||
+        String(args.notes || "");
+      const missing = getMissingFields(fieldsRef.current, account);
+      if (missing.required.length > 0) {
+        sendFunctionOutput(
+          callId,
+          {
+            ok: false,
+            ready: false,
+            missing: missing.required,
+            message: `Cannot finalize. Still missing: ${missing.required.join(", ")}. Ask citizen again.`,
+          },
+          false
+        );
+        askAgentForMissing(missing.required);
+        return;
+      }
+      sendFunctionOutput(callId, { ok: true, generating: true }, false);
       pushLine("system", "प्रिंट योग्य शिकायत मसौदा तैयार हो रहा है…");
       await createDraftFromState(String(args.notes || ""));
       return;
@@ -522,17 +661,45 @@ export function VoiceIntake() {
       return;
     }
 
-    if (type === "response.output_item.done") {
-      const item = event.item as {
+    if (type === "response.output_item.done" || type === "conversation.item.done") {
+      const item = (event.item || event) as {
         type?: string;
         name?: string;
         arguments?: string;
         call_id?: string;
-      } | undefined;
+        id?: string;
+      };
       if (item?.type === "function_call" && item.name) {
-        void handleToolCall(item.name, item.arguments || "{}", item.call_id || "");
+        void handleToolCall(
+          item.name,
+          item.arguments || "{}",
+          item.call_id || item.id || ""
+        );
       }
       return;
+    }
+
+    // Some realtime builds nest completed function calls here
+    if (type === "response.done" || type === "response.completed") {
+      const response = event.response as {
+        output?: Array<{
+          type?: string;
+          name?: string;
+          arguments?: string;
+          call_id?: string;
+        }>;
+      } | undefined;
+      if (response?.output) {
+        for (const item of response.output) {
+          if (item?.type === "function_call" && item.name) {
+            void handleToolCall(
+              item.name,
+              item.arguments || "{}",
+              item.call_id || ""
+            );
+          }
+        }
+      }
     }
 
     if (type === "error") {
@@ -564,6 +731,8 @@ export function VoiceIntake() {
     lastUserTextRef.current = "";
     lastAssistantFinalRef.current = "";
     assistantFinalizedRef.current = false;
+    lastPromptedFieldRef.current = null;
+    handledToolCallIds.current = new Set();
 
     try {
       const pc = new RTCPeerConnection({
