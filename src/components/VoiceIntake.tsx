@@ -89,6 +89,9 @@ export function VoiceIntake() {
   const assistantBufRef = useRef("");
   const assistantLineIdRef = useRef<string | null>(null);
   const lastUserTextRef = useRef("");
+  /** Last finalized desk-officer message (normalized) — blocks double done events */
+  const lastAssistantFinalRef = useRef("");
+  const assistantFinalizedRef = useRef(false);
 
   useEffect(() => {
     fieldsRef.current = fields;
@@ -150,28 +153,83 @@ export function VoiceIntake() {
     });
   }, []);
 
-  const upsertAssistantLine = useCallback((text: string, done: boolean) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    setLines((prev) => {
-      const id = assistantLineIdRef.current;
-      if (id) {
-        const idx = prev.findIndex((l) => l.id === id);
-        if (idx >= 0) {
-          const copy = [...prev];
-          copy[idx] = { ...copy[idx], text: trimmed };
-          return copy;
+  const normalizeUtterance = useCallback((s: string) => {
+    return s
+      .trim()
+      .toLowerCase()
+      .replace(/[?.!,।]+$/g, "")
+      .replace(/\s+/g, " ");
+  }, []);
+
+  const upsertAssistantLine = useCallback(
+    (text: string, done: boolean) => {
+      const trimmed = text.trim().replace(/\s+/g, " ");
+      if (!trimmed) return;
+
+      const norm = normalizeUtterance(trimmed);
+      // Exact / near-duplicate of last finished bubble (e.g. dual transcript.done events)
+      if (done && lastAssistantFinalRef.current) {
+        const prev = lastAssistantFinalRef.current;
+        if (norm === prev || prev.includes(norm) || norm.includes(prev)) {
+          assistantFinalizedRef.current = true;
+          assistantLineIdRef.current = null;
+          assistantBufRef.current = "";
+          return;
         }
       }
-      const newId = `asst-${Date.now()}`;
-      assistantLineIdRef.current = newId;
-      return [...prev, { id: newId, role: "assistant", text: trimmed }];
-    });
-    if (done) {
-      assistantLineIdRef.current = null;
-      assistantBufRef.current = "";
-    }
-  }, []);
+      // Already finalized this response turn
+      if (done && assistantFinalizedRef.current && !assistantLineIdRef.current) {
+        return;
+      }
+
+      setLines((prev) => {
+        // Prefer updating the open streaming bubble
+        const id = assistantLineIdRef.current;
+        if (id) {
+          const idx = prev.findIndex((l) => l.id === id);
+          if (idx >= 0) {
+            const copy = [...prev];
+            copy[idx] = { ...copy[idx], text: trimmed };
+            return copy;
+          }
+        }
+        // Or update last assistant if same turn (id lost) and not finalized
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant" && !assistantFinalizedRef.current) {
+          const lastNorm = normalizeUtterance(last.text);
+          if (
+            norm.startsWith(lastNorm) ||
+            lastNorm.startsWith(norm) ||
+            last.text === trimmed
+          ) {
+            const copy = [...prev];
+            copy[copy.length - 1] = {
+              ...last,
+              text: trimmed.length >= last.text.length ? trimmed : last.text,
+            };
+            assistantLineIdRef.current = last.id;
+            return copy;
+          }
+          // Near-duplicate of last finished message
+          if (lastNorm === norm || lastNorm.includes(norm) || norm.includes(lastNorm)) {
+            return prev;
+          }
+        }
+
+        const newId = `asst-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        assistantLineIdRef.current = newId;
+        return [...prev, { id: newId, role: "assistant", text: trimmed }];
+      });
+
+      if (done) {
+        lastAssistantFinalRef.current = norm;
+        assistantFinalizedRef.current = true;
+        assistantLineIdRef.current = null;
+        assistantBufRef.current = "";
+      }
+    },
+    [normalizeUtterance]
+  );
 
   const appendUserSpeech = useCallback(
     (text: string) => {
@@ -364,8 +422,16 @@ export function VoiceIntake() {
     const type = String(event.type || "");
 
     // ——— Agent speaking: mute mic to kill speaker→mic echo loop ———
+    if (type === "response.created") {
+      agentSpeakingRef.current = true;
+      setMicEnabled(false);
+      // New model turn — reset stream state so we don't merge with previous bubble wrongly
+      assistantBufRef.current = "";
+      assistantLineIdRef.current = null;
+      assistantFinalizedRef.current = false;
+    }
+
     if (
-      type === "response.created" ||
       type === "response.output_audio.delta" ||
       type === "output_audio_buffer.started" ||
       type === "response.audio.delta"
@@ -381,18 +447,17 @@ export function VoiceIntake() {
       type === "response.completed" ||
       type === "output_audio_buffer.stopped"
     ) {
+      // Finalize once from buffer if we only had deltas (no done transcript yet)
+      if (!assistantFinalizedRef.current && assistantBufRef.current.trim()) {
+        upsertAssistantLine(assistantBufRef.current, true);
+      }
       agentSpeakingRef.current = false;
-      // Keep mic muted briefly so trailing echo isn't transcribed as the user
       muteUntilRef.current = Date.now() + 900;
       setTimeout(() => {
         if (!agentSpeakingRef.current) {
           setMicEnabled(true);
         }
       }, 900);
-      // Finalize any open assistant bubble
-      if (assistantBufRef.current.trim()) {
-        upsertAssistantLine(assistantBufRef.current, true);
-      }
     }
 
     if (
@@ -406,11 +471,32 @@ export function VoiceIntake() {
       return;
     }
 
-    // Live assistant text — one bubble, updated in place (no spam fragments)
+    // Prefer a single transcript event family (output_audio_transcript).
+    // Ignore legacy response.audio_transcript.* to avoid double bubbles.
+    if (type === "response.output_audio_transcript.delta") {
+      const delta = String(event.delta || "");
+      if (delta && !assistantFinalizedRef.current) {
+        assistantBufRef.current += delta;
+        upsertAssistantLine(assistantBufRef.current, false);
+      }
+      return;
+    }
+
     if (
-      type === "response.audio_transcript.delta" ||
-      type === "response.output_audio_transcript.delta"
+      type === "response.output_audio_transcript.done" ||
+      type === "response.output_audio_transcript.completed"
     ) {
+      if (assistantFinalizedRef.current) return;
+      const transcript = (event.transcript as string) || assistantBufRef.current;
+      if (transcript) upsertAssistantLine(transcript, true);
+      return;
+    }
+
+    // Fallback only if output_audio_transcript never fires on this connection
+    if (type === "response.audio_transcript.delta") {
+      if (assistantFinalizedRef.current) return;
+      // Skip if we already received output_audio stream for this turn
+      if (assistantBufRef.current && assistantLineIdRef.current) return;
       const delta = String(event.delta || "");
       if (delta) {
         assistantBufRef.current += delta;
@@ -419,11 +505,8 @@ export function VoiceIntake() {
       return;
     }
 
-    if (
-      type === "response.audio_transcript.done" ||
-      type === "response.output_audio_transcript.done" ||
-      type === "response.output_audio_transcript.completed"
-    ) {
+    if (type === "response.audio_transcript.done") {
+      if (assistantFinalizedRef.current) return;
       const transcript = (event.transcript as string) || assistantBufRef.current;
       if (transcript) upsertAssistantLine(transcript, true);
       return;
@@ -478,6 +561,8 @@ export function VoiceIntake() {
     assistantBufRef.current = "";
     assistantLineIdRef.current = null;
     lastUserTextRef.current = "";
+    lastAssistantFinalRef.current = "";
+    assistantFinalizedRef.current = false;
 
     try {
       const pc = new RTCPeerConnection({
@@ -546,33 +631,15 @@ export function VoiceIntake() {
       dcRef.current = dc;
       dc.addEventListener("message", (e) => onDataMessage(String(e.data)));
       dc.addEventListener("open", () => {
-        // Reinforce: ignore background, don't get interrupted, near-field only
-        dc.send(
-          JSON.stringify({
-            type: "session.update",
-            session: {
-              type: "realtime",
-              audio: {
-                input: {
-                  noise_reduction: { type: "near_field" },
-                  turn_detection: {
-                    type: "semantic_vad",
-                    eagerness: "low",
-                    create_response: true,
-                    interrupt_response: false,
-                  },
-                },
-              },
-            },
-          })
-        );
-        // One greeting only — do not stack multiple response.create
+        // Session audio already configured server-side — avoid session.update
+        // (can spawn an extra model turn / duplicate speech).
+        // One greeting only.
         dc.send(
           JSON.stringify({
             type: "response.create",
             response: {
               instructions:
-                "Ek hi short Hindi greeting: Namaste, main aapka draft complaint banaunga. Sirf poora naam poochho. Dobara greeting mat do. Extra sawal mat poochho abhi.",
+                "Ek hi short Hindi greeting: Namaste, main aapka draft complaint banaunga. Sirf poora naam poochho. Dobara greeting mat do, same baat do baar mat bolo. Extra sawal mat poochho abhi.",
             },
           })
         );
