@@ -24,6 +24,7 @@ export async function POST(req: Request) {
       token: record.token,
       id: record.id,
       reviewPath: `/d/${record.token}`,
+      pdfPath: `/d/${record.token}?autoPdf=1`,
       offence: record.offence,
     });
   } catch (e) {

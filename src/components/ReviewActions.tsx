@@ -1,8 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { AutoDownloadPdf } from "./AutoDownloadPdf";
 
-export function ReviewActions({ token }: { token: string }) {
+export function ReviewActions({
+  token,
+  autoPdf = false,
+  complainantName,
+}: {
+  token: string;
+  autoPdf?: boolean;
+  complainantName?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function copyLink() {
@@ -13,16 +22,21 @@ export function ReviewActions({ token }: { token: string }) {
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
-      <button type="button" onClick={copyLink} className="btn-ghost rounded-md px-3 py-2 text-sm font-semibold">
+    <div className="flex flex-wrap items-center gap-2">
+      <AutoDownloadPdf token={token} auto={autoPdf} complainantName={complainantName} />
+      <button
+        type="button"
+        onClick={copyLink}
+        className="btn-ghost rounded-md px-3 py-2 text-sm font-semibold"
+      >
         {copied ? "लिंक कॉपी हो गया" : "मसौदा लिंक कॉपी करें"}
       </button>
       <button
         type="button"
         onClick={() => window.print()}
-        className="btn-primary rounded-md px-3 py-2 text-sm font-semibold"
+        className="btn-ghost rounded-md px-3 py-2 text-sm font-semibold"
       >
-        प्रिंट / PDF सहेजें
+        प्रिंट करें
       </button>
     </div>
   );

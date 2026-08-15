@@ -332,7 +332,8 @@ export function VoiceIntake() {
 
       cleanup();
       setStatus("ended");
-      router.push(data.reviewPath);
+      // autoPdf=1 → review page downloads PDF automatically
+      router.push(`${data.reviewPath}?autoPdf=1`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "मसौदा तैयार नहीं हो सका");
       setStatus("error");

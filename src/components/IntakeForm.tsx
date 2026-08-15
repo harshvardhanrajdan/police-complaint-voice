@@ -129,7 +129,8 @@ export function IntakeForm() {
         if (!res.ok) throw new Error(json.error || "मसौदा तैयार नहीं हो सका");
         return json;
       });
-      router.push(data.reviewPath);
+      // autoPdf=1 → review page downloads PDF automatically
+      router.push(`${data.reviewPath}?autoPdf=1`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "कुछ गलत हो गया");
       setBusy(false);
