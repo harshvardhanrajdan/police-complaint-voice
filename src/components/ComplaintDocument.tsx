@@ -184,63 +184,72 @@ export function ComplaintDocument({ complaint }: { complaint: ComplaintRecord })
         </div>
       </section>
 
-      <section className="space-y-2 rounded border-2 border-[var(--navy)] p-4">
-        <h2 className="text-base font-bold text-[var(--navy)]">
-          आगे की जानकारी हेतु संपर्क
+      <section
+        className="space-y-3 rounded border-2 border-[#0a1f44] bg-white p-4 text-slate-900"
+        style={{ colorScheme: "only light" }}
+      >
+        <h2 className="border-b border-[#0a1f44] pb-2 text-base font-bold text-[#0a1f44]">
+          आगे की जानकारी हेतु संपर्क / Contact for further enquiry
         </h2>
-        <table className="w-full border-collapse text-sm">
-          <tbody>
-            <tr className="border-b border-[#c5cedd]">
-              <th className="w-44 py-2 pr-3 text-left text-xs font-semibold text-slate-600">
-                मसौदा सहायता डेस्क
-              </th>
-              <td className="py-2 font-semibold text-slate-900">{contacts.assistantName}</td>
-            </tr>
-            <tr className="border-b border-[#c5cedd]">
-              <th className="py-2 pr-3 text-left text-xs font-semibold text-slate-600">
-                सहायक हेल्पलाइन
-              </th>
-              <td className="py-2">
-                <a
-                  href={`tel:${contacts.assistantPhone.replace(/\s/g, "")}`}
-                  className="font-mono text-base font-bold text-[var(--navy)] underline"
-                >
-                  {contacts.assistantPhone}
-                </a>
-                <span className="mt-0.5 block text-xs text-slate-500">{contacts.assistantHours}</span>
-              </td>
-            </tr>
-            {complaint.policeStationPhone ? (
-              <tr className="border-b border-[#c5cedd]">
-                <th className="py-2 pr-3 text-left text-xs font-semibold text-slate-600">
-                  थाने का फोन
-                </th>
-                <td className="py-2 font-mono font-bold">{complaint.policeStationPhone}</td>
-              </tr>
-            ) : null}
-            <tr className="border-b border-[#c5cedd]">
-              <th className="py-2 pr-3 text-left text-xs font-semibold text-slate-600">
-                पुलिस आपातकाल
-              </th>
-              <td className="py-2 font-mono font-bold">{contacts.controlRoom}</td>
-            </tr>
-            <tr className="border-b border-[#c5cedd]">
-              <th className="py-2 pr-3 text-left text-xs font-semibold text-slate-600">
-                महिला हेल्पलाइन
-              </th>
-              <td className="py-2 font-mono">{contacts.womenHelpline}</td>
-            </tr>
-            <tr>
-              <th className="py-2 pr-3 text-left text-xs font-semibold text-slate-600">
-                साइबर अपराध हेल्पलाइन
-              </th>
-              <td className="py-2 font-mono">{contacts.cyberHelpline}</td>
-            </tr>
-          </tbody>
-        </table>
-        <p className="text-[11px] text-slate-500">
-          सहायता डेस्क केवल इस मसौदे में मदद करता है। FIR संख्या / जाँच स्थिति हेतु अपने
-          क्षेत्राधिकार थाने से संपर्क करें।
+
+        <div className="overflow-hidden rounded border border-[#c5cedd]">
+          <table className="w-full border-collapse text-sm">
+            <tbody>
+              <ContactRow
+                labelHi="मसौदा सहायता डेस्क"
+                labelEn="Draft assist desk"
+                value={contacts.assistantName}
+              />
+              <ContactRow
+                labelHi="सहायक हेल्पलाइन"
+                labelEn="Assistant helpline"
+                value={
+                  <>
+                    <a
+                      href={`tel:${contacts.assistantPhone.replace(/\s/g, "")}`}
+                      className="font-mono text-base font-bold text-[#0a1f44] underline"
+                    >
+                      {contacts.assistantPhone}
+                    </a>
+                    <span className="mt-0.5 block text-xs font-normal text-slate-600">
+                      {contacts.assistantHours}
+                    </span>
+                  </>
+                }
+              />
+              {complaint.policeStationPhone ? (
+                <ContactRow
+                  labelHi="थाने का फोन"
+                  labelEn="Police station phone"
+                  value={
+                    <span className="font-mono font-bold">{complaint.policeStationPhone}</span>
+                  }
+                />
+              ) : null}
+              <ContactRow
+                labelHi="पुलिस आपातकाल"
+                labelEn="Police emergency"
+                value={<span className="font-mono text-base font-bold">{contacts.controlRoom}</span>}
+              />
+              <ContactRow
+                labelHi="महिला हेल्पलाइन"
+                labelEn="Women helpline"
+                value={<span className="font-mono font-semibold">{contacts.womenHelpline}</span>}
+              />
+              <ContactRow
+                labelHi="साइबर अपराध हेल्पलाइन"
+                labelEn="Cyber crime helpline"
+                value={<span className="font-mono font-semibold">{contacts.cyberHelpline}</span>}
+                last
+              />
+            </tbody>
+          </table>
+        </div>
+
+        <p className="text-[11px] leading-relaxed text-slate-600">
+          सहायता डेस्क केवल इस <strong>मसौदे</strong> में मदद करता है। FIR संख्या, जाँच स्थिति या
+          केस अपडेट हेतु अपने <strong>क्षेत्राधिकार थाने</strong> से संपर्क करें। आपात स्थिति में{" "}
+          <strong>{contacts.controlRoom}</strong> डायल करें।
         </p>
       </section>
 
@@ -281,6 +290,30 @@ function Row({ label, value }: { label: string; value?: string }) {
         {label}
       </th>
       <td className="px-3 py-2 text-slate-900">{value}</td>
+    </tr>
+  );
+}
+
+function ContactRow({
+  labelHi,
+  labelEn,
+  value,
+  last,
+}: {
+  labelHi: string;
+  labelEn: string;
+  value: React.ReactNode;
+  last?: boolean;
+}) {
+  return (
+    <tr className={last ? undefined : "border-b border-[#c5cedd]"}>
+      <th className="w-48 bg-[#f3f6fb] px-3 py-2.5 text-left align-top">
+        <span className="block text-xs font-bold text-[#0a1f44]">{labelHi}</span>
+        <span className="mt-0.5 block text-[10px] font-medium text-slate-500">{labelEn}</span>
+      </th>
+      <td className="bg-white px-3 py-2.5 align-top text-sm font-semibold text-slate-900">
+        {value}
+      </td>
     </tr>
   );
 }
